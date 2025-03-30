@@ -1,0 +1,71 @@
+Text-Based Schematic (Pin-by-Pin)
+Legend:
+
+[IN]: Entry fingerprint sensor
+
+[OUT]: Exit fingerprint sensor
+
+[RTC]: DS1302 Real-Time Clock
+
+[GSM]: SIM800L Module
+
+Arduino Pinout
+Pin	Connected Component	Description
+5V	[IN] VCC, [OUT] VCC, [RTC] VCC, [LCD] VCC, [SD] VCC, [Relay] VCC	Power supply for components
+GND	All components (GND)	Common ground
+D2	[GSM] TX	Receive SMS/Data from GSM
+D3	[GSM] RX	Send commands to GSM
+D4	[Relay] IN	Control relay/solenoid
+D5	[Keypad] Column 1	Keypad input
+D6	[RTC] CE	RTC chip enable
+D7	[RTC] I/O	RTC data line
+D8	[RTC] SCLK	RTC clock line
+D9	[SD] CS	SD card chip select
+D10	[IN] RX	Entry sensor data receive
+D11	[IN] TX, [SD] MOSI	Entry sensor data transmit + SD
+D12	[OUT] TX, [SD] MISO	Exit sensor data transmit + SD
+D13	[OUT] RX, [SD] SCK	Exit sensor data receive + SD
+A0	[Keypad] Row 1, [Buzzer] +	Keypad row + Buzzer signal
+A1	[Keypad] Row 2	Keypad row
+A2	[Keypad] Row 3	Keypad row
+A3	[Keypad] Row 4	Keypad row
+A4	[LCD] SDA	LCD I2C data
+A5	[LCD] SCL	LCD I2C clock
+Block Diagram
+Copy
++-------------------+  
+|   Arduino Uno     |  
+|                   |  
+|  +-------------+  |      +----------------+  
+|  | [IN] Sensor |<------>| Pins 10 (RX)    |  
+|  +-------------+  |      |       11 (TX)   |  
+|                   |      +----------------+  
+|  +-------------+  |      +----------------+  
+|  | [OUT] Sensor|<------>| Pins 12 (RX)    |  
+|  +-------------+  |      |       13 (TX)   |  
+|                   |      +----------------+  
+|  +-------------+  |  
+|  | [GSM] SIM800L|<----->| Pins 2 (RX)     |  
+|  +-------------+  |      |       3 (TX)    |  
+|                   |      +----------------+  
+|  +-------------+  |  
+|  | [RTC] DS1302|<------>| Pins 6 (CE)     |  
+|  +-------------+  |      | 7 (I/O), 8 (SCLK)|  
+|                   |      +----------------+  
+|  +-------------+  |  
+|  | [LCD] 16x2  |<------>| I2C (A4, A5)    |  
+|  +-------------+  |      +----------------+  
+|  +-------------+  |  
+|  | [Keypad]    |<------>| Rows (A0-A3)    |  
+|  | 4x4 Matrix  |        | Columns (D5-D8) |  
+|  +-------------+  |      +----------------+  
+|  +-------------+  |  
+|  | [SD] Module |<------>| Pins 9 (CS), 11 (MOSI)|  
+|  +-------------+  |      | 12 (MISO), 13 (SCK) |  
++-------------------+      +---------------------+  
+Power Distribution
+Arduino 5V: Powers sensors, LCD, RTC, and relay logic.
+
+External 12V: For solenoid lock (via relay).
+
+9V Battery: Backup for RTC (connect to RTC’s VCC).

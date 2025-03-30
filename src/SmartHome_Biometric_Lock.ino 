@@ -1,0 +1,157 @@
+#include <SoftwareSerial.h>
+#include <Adafruit_Fingerprint.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <RTClib.h>
+#include <Keypad.h>
+#include <SD.h>
+
+// GSM Module
+SoftwareSerial gsm(2, 3); // RX, TX
+#define ADMIN_PHONE "+1234567890"
+
+// Fingerprint Sensors
+SoftwareSerial fpIN(10, 11);
+SoftwareSerial fpOUT(12, 13);
+Adafruit_Fingerprint fingerIN(&fpIN);
+Adafruit_Fingerprint fingerOUT(&fpOUT);
+#define CONFIDENCE_THRESHOLD 100
+
+// LCD
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// RTC
+RTC_DS1302 rtc(6, 7, 8); // CE, I/O, SCLK
+
+// Keypad
+const byte ROWS = 4, COLS = 4;
+char keys[ROWS][COLS] = {{'1','2','3','A'}, {'4','5','6','B'}, {'7','8','9','C'}, {'*','0','#','D'}};
+Keypad keypad = Keypad(makeKeymap(keys), A0, A1, A2, A3, 5, 6, 7, 8);
+
+// SD Card
+#define SD_CS 9
+
+// Buzzer
+#define BUZZER_PIN 14
+
+// Relay
+#define RELAY_PIN 4
+
+// Employee Data
+String employees[] = {"John Doe", "Jane Smith"};
+
+void setup() {
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);
+  pinMode(BUZZER_PIN, OUTPUT);
+
+  Serial.begin(9600);
+  gsm.begin(9600);
+  Wire.begin();
+
+  lcd.init();
+  lcd.backlight();
+  lcd.print("System Booting...");
+
+  if (!rtc.begin()) {
+    lcd.print("RTC Error!");
+    while(1);
+  }
+  if (!rtc.isrunning()) rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+
+  fingerIN.begin(57600);
+  fingerOUT.begin(57600);
+  if (!fingerIN.verifyPassword() || !fingerOUT.verifyPassword()) {
+    lcd.print("Sensor Error!");
+    while(1);
+  }
+
+  if (!SD.begin(SD_CS)) {
+    lcd.print("SD Card Error!");
+  }
+
+  initializeGSM();
+}
+
+void loop() {
+  checkSensor(&fingerIN, "IN");
+  checkSensor(&fingerOUT, "OUT");
+  checkSMSCommands();
+}
+
+void checkSensor(Adafruit_Fingerprint *sensor, String dir) {
+  int id = getFingerprintID(sensor);
+  if (id != -1) {
+    DateTime now = rtc.now();
+    String time = String(now.hour()) + ":" + String(now.minute());
+    
+    if (id == 0) {
+      alertFake(dir, time);
+    } else {
+      if (validatePIN()) {
+        unlockDoor();
+        logEvent("ID:" + String(id) + " " + dir + " @ " + time);
+        sendSMS("ID:" + String(id) + " " + dir + " @ " + time);
+      }
+    }
+  }
+}
+
+int getFingerprintID(Adafruit_Fingerprint *sensor) {
+  if (sensor->getImage() != FINGERPRINT_OK) return -1;
+  sensor->image2Tz();
+  if (sensor->fingerFastSearch() != FINGERPRINT_OK || sensor->confidence < CONFIDENCE_THRESHOLD) return 0;
+  return sensor->fingerID;
+}
+
+bool validatePIN() {
+  lcd.clear();
+  lcd.print("Enter PIN:");
+  String pin;
+  while (pin.length() < 4) {
+    char key = keypad.getKey();
+    if (key) {
+      pin += key;
+      lcd.setCursor(pin.length()-1, 1);
+      lcd.print("*");
+    }
+  }
+  return (pin == "1234"); // Replace with EEPROM-stored PINs
+}
+
+void alertFake(String dir, String time) {
+  lcd.clear();
+  lcd.print("Fake Detected!");
+  buzzerAlert(3);
+  logEvent("Fake Print @ " + time);
+  sendSMS("ALERT: Fake " + dir + " Attempt!");
+}
+
+void logEvent(String event) {
+  File file = SD.open("log.txt", FILE_WRITE);
+  if (file) {
+    file.println(event);
+    file.close();
+  }
+}
+
+void buzzerAlert(int beeps) {
+  for (int i=0; i<beeps; i++) {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(200);
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(200);
+  }
+}
+
+void checkSMSCommands() {
+  if (gsm.available()) {
+    String msg = gsm.readString();
+    if (msg.indexOf("UNLOCK") != -1) {
+      unlockDoor();
+      sendSMS("Door Unlocked Remotely");
+    }
+  }
+}
+
+// Other functions (sendSMS, unlockDoor, initializeGSM) remain same as previous code

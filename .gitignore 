@@ -1,0 +1,12 @@
+# Arduino IDE
+*.elf
+*.bin
+*.hex
+*.eep
+
+# IDE metadata
+.idea/
+.vscode/
+
+# Libraries (managed externally)
+src/libraries/
